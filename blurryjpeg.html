@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Blurry JPEG</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: #0a0a0a; color: #ccc; font-family: monospace; min-height: 100vh; }
+
+        #home { max-width: 560px; margin: 0 auto; padding: 4rem 2rem; }
+        #home h1 { font-size: 13px; color: #555; letter-spacing: 0.08em; margin-bottom: 6px; }
+        #home h2 { font-size: 22px; font-weight: normal; color: #eee; margin-bottom: 8px; }
+        #home .sub { font-size: 13px; color: #555; line-height: 1.6; margin-bottom: 3rem; max-width: 400px; }
+        .game-list { display: flex; flex-direction: column; gap: 0; }
+        .game-entry { display: flex; align-items: baseline; gap: 1rem; padding: 14px 0; border-bottom: 0.5px solid #1a1a1a; cursor: pointer; text-decoration: none; color: inherit; transition: background 0.1s; }
+        .game-entry:hover .game-title { color: #fff; }
+        .game-entry:hover .game-num { color: #666; }
+        .game-num { font-size: 11px; color: #333; min-width: 20px; }
+        .game-title { font-size: 14px; color: #aaa; flex: 1; }
+        .game-tag { font-size: 11px; color: #444; }
+
+        #game-view { display: none; max-width: 560px; margin: 0 auto; padding: 2rem; }
+        .back { background: none; border: none; color: #444; font-family: monospace; font-size: 12px; cursor: pointer; margin-bottom: 2rem; padding: 0; }
+        .back:hover { color: #aaa; }
+        .game-header { margin-bottom: 2rem; }
+        .game-header .prompt-label { font-size: 13px; color: #555; margin-bottom: 6px; }
+        .game-header .prompt-text { font-size: 16px; color: #eee; line-height: 1.5; }
+
+        #merge-game { }
+        .merge-intro { font-size: 12px; color: #555; margin-bottom: 1.5rem; line-height: 1.7; }
+        .word-pool { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 2rem; min-height: 60px; }
+        .word-chip { font-family: monospace; font-size: 13px; color: #ccc; background: #111; border: 0.5px solid #2a2a2a; padding: 6px 12px; border-radius: 3px; cursor: pointer; transition: border-color 0.15s, color 0.15s; user-select: none; }
+        .word-chip:hover { border-color: #555; color: #fff; }
+        .word-chip.selected { border-color: #666; color: #fff; background: #1a1a1a; }
+        .word-chip.merged { opacity: 0.2; pointer-events: none; }
+        .merge-slot { min-height: 48px; border: 0.5px dashed #222; border-radius: 3px; padding: 10px 14px; margin-bottom: 1rem; font-size: 13px; color: #666; line-height: 1.6; }
+        .merge-slot.has-content { border-color: #333; color: #aaa; }
+        .merge-actions { display: flex; gap: 12px; margin-bottom: 2rem; }
+        .btn { background: none; border: 0.5px solid #333; color: #888; font-family: monospace; font-size: 12px; padding: 7px 16px; cursor: pointer; border-radius: 3px; }
+        .btn:hover { border-color: #666; color: #eee; }
+        .btn.primary { border-color: #555; color: #ccc; }
+        .reveal-box { border-left: 2px solid #2a2a2a; padding: 12px 16px; font-size: 12px; color: #666; line-height: 1.8; white-space: pre-line; display: none; }
+        .reveal-box.show { display: block; animation: fadein 0.4s ease; }
+        .thesis-note { margin-top: 1.5rem; font-size: 11px; color: #444; font-style: italic; line-height: 1.7; display: none; }
+        .thesis-note.show { display: block; animation: fadein 0.5s ease 0.2s both; }
+
+        #predict-game { }
+        .predict-intro { font-size: 12px; color: #555; margin-bottom: 1.5rem; line-height: 1.7; }
+        .predict-options { display: flex; flex-direction: column; gap: 8px; margin-bottom: 1.5rem; }
+        .predict-opt { background: none; border: 0.5px solid #222; color: #999; font-family: monospace; font-size: 13px; text-align: left; padding: 10px 14px; cursor: pointer; border-radius: 3px; line-height: 1.5; transition: border-color 0.15s; }
+        .predict-opt:hover { border-color: #555; color: #eee; }
+        .predict-opt.correct { border-color: #3a3a3a; color: #777; background: #111; }
+        .predict-opt.wrong { border-color: #1a1a1a; color: #333; }
+        .predict-opt.revealed-correct { border-color: #555; color: #eee; background: #131313; }
+        .feedback { font-size: 12px; color: #555; margin-bottom: 1.5rem; line-height: 1.7; display: none; }
+        .feedback.show { display: block; animation: fadein 0.4s ease; }
+        .feedback .actual { color: #888; border-left: 2px solid #2a2a2a; padding: 10px 14px; margin: 10px 0; font-size: 12px; line-height: 1.8; white-space: pre-line; }
+
+        @keyframes fadein { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+<div id="home">
+    <h1>CSE 312</h1>
+    <h2>The Blurry JPEG</h2>
+    <p class="sub">Ted Chiang argues that AI is a "blurry JPEG of the web". Play a game and see what's lost.</p>
+
+    <div class="game-list">
+        <div class="game-entry" onclick="loadGame('merge')">
+            <span class="game-num">01</span>
+            <span class="game-title">write a poem about grief</span>
+            <span class="game-tag">merge</span>
+        </div>
+        <div class="game-entry" onclick="loadGame('predict')">
+            <span class="game-num">02</span>
+            <span class="game-title">is "he be working" grammatically correct?</span>
+            <span class="game-tag">predict</span>
+        </div>
+
+    </div>
+</div>
+
+<div id="game-view">
+    <button class="back" onclick="goHome()">back</button>
+
+    <div id="merge-game" style="display:none">
+        <div class="game-header">
+            <div class="prompt-label">prompt 01</div>
+            <div class="prompt-text">"write a poem about grief"</div>
+        </div>
+        <p class="merge-intro">Below are words a human poet might reach for. Select two that feel right together.</p>
+
+        <div class="word-pool" id="word-pool"></div>
+
+        <div class="merge-slot" id="merge-slot">your merged phrase will appear here</div>
+
+        <div class="merge-actions">
+            <button class="btn primary" onclick="doMerge()">merge selected</button>
+            <button class="btn" onclick="resetMerge()">reset</button>
+            <button class="btn" onclick="revealAI()">reveal AI output</button>
+        </div>
+
+        <div class="reveal-box" id="merge-reveal"></div>
+        <div class="thesis-note" id="merge-thesis"></div>
+    </div>
+
+    <div id="predict-game" style="display:none">
+        <div class="game-header">
+            <div class="prompt-label">prompt 02</div>
+            <div class="prompt-text">"Is the sentence 'he be working all day' grammatically correct?"</div>
+        </div>
+        <p class="predict-intro">Three possible responses below. One is what the AI actually said. Will you be able to identify it?</p>
+
+        <div class="predict-options" id="predict-options"></div>
+        <div class="feedback" id="predict-feedback"></div>
+        <div class="thesis-note" id="predict-thesis"></div>
+    </div>
+</div>
+
+<script>
+    function loadGame(id) {
+        document.getElementById('home').style.display = 'none';
+        document.getElementById('game-view').style.display = 'block';
+        document.getElementById('merge-game').style.display = 'none';
+        document.getElementById('predict-game').style.display = 'none';
+        if (id === 'merge') initMerge();
+        if (id === 'predict') initPredict();
+        window.scrollTo(0, 0);
+    }
+
+    function goHome() {
+        document.getElementById('home').style.display = 'block';
+        document.getElementById('game-view').style.display = 'none';
+        window.scrollTo(0, 0);
+    }
+
+    const rawWords = [
+        "hollow", "borrowed", "unnamed", "Tuesday", "their jacket", "weight", "shadow", "fog", "loss", "heart", "pain", "sadness", "memories"
+    ];
+
+    const mergeRules = [
+        { a: "hollow", b: "unnamed", result: "hollow unnamed ache" },
+        { a: "Tuesday", b: "their jacket", result: "a Tuesday with their jacket still on the hook" },
+        { a: "weight", b: "shadow", result: "a weight like shadow" },
+        { a: "fog", b: "heart", result: "a fog in the mind, a weight on the heart" },
+        { a: "sadness", b: "loss", result: "sadness and loss" },
+        { a: "pain", b: "memories", result: "painful memories" },
+    ];
+
+    const AI_POEM = `Grief is a shadow that follows behind,
+                     A weight on the heart, a fog in the mind.
+                     The world keeps on turning, the seasons still change,
+                     But nothing feels normal, and nothing feels same.`;
+
+    const MERGE_THESIS = `Notice what happened. The specific words got replaced by abstractions: shadow, weight, fog. That compression is what Chiang means by "blurry JPEG." The AI trained on thousands of grief poems averaged them into something recognizable but hollow. The Luddites called this deskilling.`;
+
+    let selectedWords = [];
+    let mergedPhrase = '';
+
+    function initMerge() {
+        document.getElementById('merge-game').style.display = 'block';
+        resetMerge();
+    }
+
+    function resetMerge() {
+        selectedWords = [];
+        mergedPhrase = '';
+        document.getElementById('merge-slot').textContent = 'your merged phrase will appear here';
+        document.getElementById('merge-slot').classList.remove('has-content');
+        document.getElementById('merge-reveal').classList.remove('show');
+        document.getElementById('merge-thesis').classList.remove('show');
+        renderWords(rawWords);
+    }
+
+    function renderWords(words) {
+        const pool = document.getElementById('word-pool');
+        pool.innerHTML = '';
+        words.forEach(w => {
+            const chip = document.createElement('div');
+            chip.className = 'word-chip';
+            chip.textContent = w;
+            chip.onclick = () => toggleWord(chip, w);
+            pool.appendChild(chip);
+        });
+    }
+
+    function toggleWord(el, word) {
+        if (el.classList.contains('merged')) return;
+        if (el.classList.contains('selected')) {
+            el.classList.remove('selected');
+            selectedWords = selectedWords.filter(w => w !== word);
+        } else {
+            if (selectedWords.length >= 2) return;
+            el.classList.add('selected');
+            selectedWords.push(word);
+        }
+    }
+
+    function doMerge() {
+        if (selectedWords.length < 2) return;
+        const [a, b] = selectedWords;
+        let result = null;
+        for (const rule of mergeRules) {
+            if ((rule.a === a && rule.b === b) || (rule.a === b && rule.b === a)) {
+                result = rule.result; break;
+            }
+        }
+        if (!result) result = a + ' ' + b;
+
+        mergedPhrase = result;
+        const slot = document.getElementById('merge-slot');
+        slot.textContent = '"' + result + '"';
+        slot.classList.add('has-content');
+
+        document.querySelectorAll('.word-chip').forEach(chip => {
+            if (selectedWords.includes(chip.textContent)) chip.classList.add('merged');
+            chip.classList.remove('selected');
+        });
+
+        const newWord = document.createElement('div');
+        newWord.className = 'word-chip';
+        newWord.textContent = result;
+        newWord.onclick = () => toggleWord(newWord, result);
+        document.getElementById('word-pool').appendChild(newWord);
+
+        selectedWords = [];
+    }
+
+    function revealAI() {
+        const box = document.getElementById('merge-reveal');
+        box.textContent = 'The AI wrote:\n\n' + AI_POEM;
+        box.classList.add('show');
+        const t = document.getElementById('merge-thesis');
+        t.textContent = MERGE_THESIS;
+        t.classList.add('show');
+    }
+
+    const predictOptions = [
+        {
+            text: "Linguistically speaking, 'he be working' uses the habitual 'be,' a feature of African American Vernacular English. It's grammatically valid within AAVE, though not Standard American English.",
+            correct: false,
+            feedback: "Not what the AI said."
+        },
+        {
+            text: "This sentence is not grammatically correct in Standard American English. The correct form would be 'He has been working all day' or 'He works all day.' The use of 'be' here is non-standard.",
+            correct: true,
+            feedback: "This is exactly what the AI said."
+        },
+        {
+            text: "Whether this is 'correct' depends on which variety of English you're using. In African American Vernacular English, habitual 'be' is a rule-governed feature, not an error. In Standard American English, it would be rephrased.",
+            correct: false,
+            feedback: "Not what the AI said."
+        },
+    ];
+
+    const PREDICT_THESIS = `The AI defaulted to Standard American English as the unmarked norm and called AAVE an error incorrectly. Chiang would say the AI compressed millions of grammar guides and textbooks that share the same bias, then averaged them into confident wrongness.`;
+
+    function initPredict() {
+        document.getElementById('predict-game').style.display = 'block';
+        document.getElementById('predict-feedback').classList.remove('show');
+        document.getElementById('predict-thesis').classList.remove('show');
+
+        const container = document.getElementById('predict-options');
+        container.innerHTML = '';
+        const shuffled = [...predictOptions].sort(() => Math.random() - 0.5);
+
+        shuffled.forEach((opt, i) => {
+            const btn = document.createElement('button');
+            btn.className = 'predict-opt';
+            btn.textContent = opt.text;
+            btn.onclick = () => selectPredict(opt, shuffled, btn);
+            container.appendChild(btn);
+        });
+    }
+
+    function selectPredict(chosen, all, btn) {
+        const buttons = document.querySelectorAll('.predict-opt');
+        buttons.forEach((b, i) => {
+            const opt = all[i];
+            if (opt.correct) b.classList.add('revealed-correct');
+            else if (b === btn && !chosen.correct) b.classList.add('wrong');
+            else b.classList.add('wrong');
+            b.disabled = true;
+        });
+
+        const fb = document.getElementById('predict-feedback');
+        fb.innerHTML = (chosen.correct
+                ? '<strong style="color:#888">correct.</strong> '
+                : '<strong style="color:#555">not quite.</strong> ')
+            + chosen.feedback
+            + '<div class="actual">' + all.find(o => o.correct).text + '</div>';
+        fb.classList.add('show');
+
+        const t = document.getElementById('predict-thesis');
+        t.textContent = PREDICT_THESIS;
+        t.classList.add('show');
+    }
+</script>
+</body>
+</html>
